@@ -30,3 +30,31 @@ func TestNorm(t *testing.T) {
 		})
 	}
 }
+
+// always store the result of benchmark to a package level variable
+// so the compiler cannot eliminate the Benchmark itself.
+var benchmarkResult string
+
+func BenchmarkNorn(b *testing.B) {
+	benchCases := []string{
+		"1234567890",
+		"123 456 7891",
+		"(123) 456-7893",
+		"there is no phone",
+		"",
+	}
+	var r string
+	for _, input := range benchCases {
+		input := input
+		b.Run(input, func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				// records the result to prevent the compiler eliminating the function call
+				r = phone.Norm(input)
+			}
+		})
+	}
+
+	// always store the result of benchmark to a package level variable
+	// so the compiler cannot eliminate the Benchmark itself.
+	benchmarkResult = r
+}
