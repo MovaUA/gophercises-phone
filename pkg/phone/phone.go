@@ -11,6 +11,5 @@ func Norm(phoneNo string) string {
 			continue
 		}
 		result = append(result, r)
-	}
 	return string(result)
 }
