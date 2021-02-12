@@ -1,3 +1,4 @@
+// Package model defines models for the database tables
 package model
 
 // Phone represents a record in phones table

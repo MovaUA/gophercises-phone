@@ -1,9 +1,10 @@
+// Package db provides database access to phones table.
+// Internal SQL code can work against PostgreSQL database.
 package db
 
 import (
 	"database/sql"
 
-	_ "github.com/lib/pq"
 	"github.com/movaua/gophercises-phone/pkg/model"
 )
 
@@ -12,10 +13,11 @@ type DB struct {
 	db *sql.DB
 }
 
-// Open opens a database specified by its data source name,
-// usually consisting of at least a database name and connection information.
-func Open(dataSourceName string) (*DB, error) {
-	db, err := sql.Open("postgres", dataSourceName)
+// Open opens a database specified by its database driver name and a
+// driver-specific data source name, usually consisting of at least a
+// database name and connection information.
+func Open(driverName, dataSourceName string) (*DB, error) {
+	db, err := sql.Open(driverName, dataSourceName)
 	if err != nil {
 		return nil, err
 	}

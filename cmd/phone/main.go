@@ -6,13 +6,15 @@ import (
 	"fmt"
 	"log"
 
+	_ "github.com/lib/pq"
+
 	"github.com/movaua/gophercises-phone/pkg/db"
 	"github.com/movaua/gophercises-phone/pkg/model"
 	"github.com/movaua/gophercises-phone/pkg/phone"
 )
 
 func main() {
-	db, err := db.Open("dbname=testdb port=5432 user=user password=test sslmode=disable")
+	db, err := db.Open("postgres", "dbname=testdb port=5432 user=user password=test sslmode=disable")
 	must(err)
 	defer db.Close()
 
