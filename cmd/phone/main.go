@@ -6,26 +6,25 @@ import (
 	"fmt"
 	"log"
 
-	_ "github.com/lib/pq"
-	ph "github.com/movaua/gophercises-phone/pkg/phone"
+	"github.com/movaua/gophercises-phone/pkg/db"
+	"github.com/movaua/gophercises-phone/pkg/model"
+	"github.com/movaua/gophercises-phone/pkg/phone"
 )
 
 func main() {
-	db, err := sql.Open("postgres", "dbname=testdb port=5432 user=user password=test sslmode=disable")
+	db, err := db.Open("dbname=testdb port=5432 user=user password=test sslmode=disable")
 	must(err)
 	defer db.Close()
 
-	must(db.Ping())
+	must(db.Migrate())
 
-	must(createPhonesTable(db))
+	p := &model.Phone{Number: "1234567890"}
+	must(db.Insert(p))
+	fmt.Printf("%+v\n", p)
 
-	id, err := insertPhone(db, "1234567890")
+	p, err = db.Get(p.ID)
 	must(err)
-	fmt.Printf("id=%d\n", id)
-
-	number, err := getPhone(db, id)
-	must(err)
-	fmt.Printf("phone=%q\n", number)
+	fmt.Printf("%+v\n", p)
 
 	numbers := []string{
 		"1234567890",
@@ -38,13 +37,12 @@ func main() {
 		"there is no phone here",
 	}
 	for _, n := range numbers {
-		_, err = insertPhone(db, n)
-		must(err)
+		must(db.Insert(&model.Phone{Number: n}))
 	}
 
 	fmt.Println("----------------------------------------------")
 	fmt.Println("All phones:")
-	phones, err := allPhones(db)
+	phones, err := db.All()
 	must(err)
 	for _, p := range phones {
 		fmt.Printf("%+v\n", p)
@@ -54,25 +52,25 @@ func main() {
 	fmt.Println("Normalizing and making unique:")
 	for _, p := range phones {
 		fmt.Printf("Processing: %+v...\n", p)
-		n := ph.Norm(p.number)
-		id, err := findPhone(db, n)
+		n := phone.Norm(p.Number)
+		found, err := db.Find(n)
 		if errors.Is(err, sql.ErrNoRows) {
 			if n == "" {
-				must(deletePhone(db, p.id))
+				must(db.Delete(p.ID))
 				fmt.Println("Invalid phone is deleted")
 				continue
 			}
-			must(updatePhone(db, p.id, n))
+			must(db.Update(model.Phone{ID: p.ID, Number: n}))
 			fmt.Println("Phone is normalized")
 			continue
 		}
 		must(err)
 		switch {
-		case id != p.id:
-			must(deletePhone(db, p.id))
+		case found.ID != p.ID:
+			must(db.Delete(p.ID))
 			fmt.Println("Duplicate is deleted")
-		case n != p.number:
-			must(updatePhone(db, id, n))
+		case n != p.Number:
+			must(db.Update(model.Phone{ID: found.ID, Number: n}))
 			fmt.Println("Phone is normalized")
 		default:
 			fmt.Println("Nothing to do")
@@ -81,7 +79,7 @@ func main() {
 
 	fmt.Println("----------------------------------------------")
 	fmt.Println("All phones:")
-	phones, err = allPhones(db)
+	phones, err = db.All()
 	must(err)
 	for _, p := range phones {
 		fmt.Printf("%+v\n", p)
@@ -93,76 +91,4 @@ func must(err error) {
 		return
 	}
 	log.Panicln(err)
-}
-
-func createPhonesTable(db *sql.DB) error {
-	statement := `
-		create table if not exists public.phones
-		(
-			id serial,
-			number varchar(255)
-		)
-	`
-
-	_, err := db.Exec(statement)
-
-	return err
-}
-
-func insertPhone(db *sql.DB, number string) (int64, error) {
-	var id int64
-	if err := db.QueryRow("insert into public.phones (number) values ($1) returning id", number).Scan(&id); err != nil {
-		return 0, err
-	}
-	return id, nil
-}
-
-func getPhone(db *sql.DB, id int64) (string, error) {
-	var number string
-	err := db.QueryRow("select number from public.phones where id=$1", id).Scan(&number)
-	return number, err
-}
-
-type phone struct {
-	id     int64
-	number string
-}
-
-func allPhones(db *sql.DB) ([]phone, error) {
-	rows, err := db.Query("select id, number from public.phones order by id asc")
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var phones []phone
-	for rows.Next() {
-		var p phone
-		if err := rows.Scan(&p.id, &p.number); err != nil {
-			return nil, err
-		}
-		phones = append(phones, p)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return phones, nil
-}
-
-func deletePhone(db *sql.DB, id int64) error {
-	_, err := db.Exec("delete from public.phones where id=$1", id)
-	return err
-}
-
-func updatePhone(db *sql.DB, id int64, number string) error {
-	_, err := db.Exec("update public.phones set number=$2 where id=$1", id, number)
-	return err
-}
-
-func findPhone(db *sql.DB, number string) (int64, error) {
-	var id int64
-	row := db.QueryRow("select id from public.phones where number=$1", number)
-	if err := row.Scan(&id); err != nil {
-		return 0, err
-	}
-	return id, nil
 }

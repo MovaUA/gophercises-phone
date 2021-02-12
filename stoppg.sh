@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -ex
+set -x
 
 docker stop postgres
 docker stop pgadmin
